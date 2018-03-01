@@ -45,14 +45,14 @@ defmodule ContributionBonus.OrganizationManager do
       |> add_campaign(campaign)
       |> reply_success({:ok, campaign})
     else
-      _ -> reply_error(state, "unable to create a new campaign")
+      {:error, msg} -> reply_error(state, msg)
     end
   end
 
   def handle_call({:add_campaign_member, member, campaign, amount, can_receive}, _from, state) do
     with :valid_member <- valid_member(state, member),
          :valid_campaign <- valid_campaign(state, campaign),
-         %CampaignMember{} = cm <- CampaignMember.new(member, can_receive, amount) do
+         {:ok, %CampaignMember{} = cm} <- CampaignMember.new(member, can_receive, amount) do
       state
       |> IO.inspect(label: "add method to add campaign member to state")
       |> reply_success({:ok, cm})

@@ -4,7 +4,7 @@ defmodule ContributionBonus.Campaign do
 
   defstruct [:id, :title, :start_date, :end_date, :campaign_members]
 
-  def new(title, start_date, end_date),
+  def new(title, %Date{} = start_date, %Date{} = end_date),
     do:
       {:ok,
        %Campaign{
@@ -14,6 +14,9 @@ defmodule ContributionBonus.Campaign do
          end_date: end_date,
          campaign_members: []
        }}
+
+  def new(_title, _start_date, _end_date),
+    do: {:error, "invalid date(s)"}
 
   def add_member(campaign, %CampaignMember{} = member),
     do: {:ok, %{campaign | campaign_members: campaign.campaign_members ++ [member]}}
