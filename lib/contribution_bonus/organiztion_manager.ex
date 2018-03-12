@@ -20,6 +20,10 @@ defmodule ContributionBonus.OrganizationManager do
   def add_member_to_campaign(org, member, campaign, amount, can_receive \\ true),
     do: GenServer.call(org, {:add_campaign_member, member, campaign, amount, can_receive})
 
+  def add_members_to_campaign(org, members, campaign, amount, can_receive \\ true)
+      when is_list(members),
+      do: GenServer.call(org, {:add_campaign_members, members, campaign, amount, can_receive})
+
   # SERVER METHODS
   def handle_call({:add_member, first_name, last_name, email}, _from, state) do
     with {:ok, member} <- Member.new(first_name, last_name, email),
@@ -52,14 +56,30 @@ defmodule ContributionBonus.OrganizationManager do
   def handle_call({:add_campaign_member, member, campaign, amount, can_receive}, _from, state) do
     with :valid_member <- valid_member(state, member),
          :valid_campaign <- valid_campaign(state, campaign),
-         {:ok, %CampaignMember{} = cm} <- CampaignMember.new(member, can_receive, amount) do
+         {:ok, %CampaignMember{} = cm} <- CampaignMember.new(member, can_receive, amount),
+         {:ok, new_campaign} <- Campaign.add_member(campaign, cm) do
       state
-      |> IO.inspect(label: "add method to add campaign member to state")
+      |> replace_campaign(new_campaign)
       |> reply_success({:ok, cm})
     else
       :invalid_member -> reply_error(state, "member does not exist")
       :invalid_campaign -> reply_error(state, "campaign does not exist")
       {:error, msg} -> reply_error(state, msg)
+    end
+  end
+
+  def handle_call({:add_campaign_members, members, campaign, amount, can_receive}, _from, state) do
+    with :valid_campaign <- valid_campaign(state, campaign),
+         {valid_members, invalid_members} <-
+           split_campaign_members(state, members, campaign, amount, can_receive),
+         to_add <- Enum.map(valid_members, fn {:ok, cm} -> cm end),
+         {:ok, campaign} <- Campaign.add_members(campaign, to_add) do
+      state
+      |> replace_campaign(campaign)
+      |> reply_success({:ok, campaign, {valid_members, invalid_members}})
+    else
+      :invalid_campaign -> reply_error(state, "campaign does not exist")
+      {:error, err} -> reply_error(state, err)
     end
   end
 
@@ -73,6 +93,31 @@ defmodule ContributionBonus.OrganizationManager do
 
   defp add_campaign(%{campaigns: campaigns} = state, campaign),
     do: put_in(state, [:campaigns], campaigns ++ [campaign])
+
+  defp create_campaign_member(state, campaign, member, can_receive, amount) do
+    with :valid_member <- valid_member(state, member),
+         {:ok, %CampaignMember{} = cm} <- CampaignMember.new(member, can_receive, amount) do
+      {:ok, cm}
+    else
+      :invalid_member -> {:error, member}
+      e -> {:error, member}
+    end
+  end
+
+  defp split_campaign_members(state, members, campaign, amount, can_receive) do
+    members
+    |> Enum.map(&create_campaign_member(state, campaign, &1, can_receive, amount))
+    |> Enum.split_with(fn {ok_or_err, payload} -> ok_or_err == :ok end)
+  end
+
+  defp replace_campaign(%{campaigns: campaigns} = state, campaign) do
+    idx = Enum.find_index(campaigns, &(&1.id == campaign.id))
+    campaigns = List.replace_at(campaigns, idx, campaign)
+    put_in(state, [:campaigns], campaigns)
+  end
+
+  defp replace_campaign_members(new_campaign_members, campaign),
+    do: %{campaign | campaign_members: new_campaign_members}
 
   defp valid_member(state, %Member{email: email} = _member) do
     state.organization.members

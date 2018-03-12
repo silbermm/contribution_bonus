@@ -15,8 +15,7 @@ defmodule ContributionBonus.Campaign do
          campaign_members: []
        }}
 
-  def new(_title, _start_date, _end_date),
-    do: {:error, "invalid date(s)"}
+  def new(_title, _start_date, _end_date), do: {:error, "invalid date(s)"}
 
   def add_member(campaign, %CampaignMember{} = member),
     do: {:ok, %{campaign | campaign_members: campaign.campaign_members ++ [member]}}
