@@ -4,7 +4,7 @@ defmodule ContributionBonus.MemberTest do
   alias ContributionBonus.Member
 
   test "creates a new member" do
-    {:ok, %Member{first_name: "Matt", last_name: "Silbernagel", email: "m.s@ingagepartners.com"}} ==
+    assert {:ok, %Member{first_name: "Matt", last_name: "Silbernagel", email: "m.s@ingagepartners.com"}} ==
       Member.new("Matt", "Silbernagel", "m.s@ingagepartners.com")
   end
 

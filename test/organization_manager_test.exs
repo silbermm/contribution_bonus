@@ -65,6 +65,11 @@ defmodule ContributionBonus.OrganziationManagerTest do
 
       assert msg == "campaign does not exist"
     end
+
+    test "unable to create an org if already exists", %{pid: pid} do
+      {:error, reason} = OrganizationManager.start_link("Ingage Partners")
+      assert reason == {:already_started, pid}
+    end
   end
 
   describe "adds campaign members" do
@@ -95,13 +100,25 @@ defmodule ContributionBonus.OrganziationManagerTest do
       campaign: campaign
     } do
       members = members ++ [build(:member)]
-      {:ok, _campaign, {added, erred}} =
+      {:ok, _campaign, {_added, erred}} =
         OrganizationManager.add_members_to_campaign(pid, members, campaign, 1000)
       assert 1 == Enum.count(erred)
     end
   end
 
-  defp ingage_org(context) do
+  describe "gets data" do
+    setup [:ingage_org, :with_members, :with_campaign, :with_campaign_members]
+
+    test "gets campaign members", %{pid: pid, campaign: campaign, campaign_members: campaign_members} do
+      assert campaign_members == OrganizationManager.get_campaign_members(pid, campaign)
+    end
+
+    test "gets organization members", %{pid: pid, members: members} do
+      assert members == OrganizationManager.get_members(pid)
+    end
+  end
+
+  defp ingage_org(_context) do
     {:ok, pid} = OrganizationManager.start_link("Ingage Partners")
     [pid: pid]
   end
@@ -129,5 +146,11 @@ defmodule ContributionBonus.OrganziationManagerTest do
       )
 
     Map.put(context, :campaign, campaign)
+  end
+
+  defp with_campaign_members(context) do
+    {:ok, _campaign, {added, _err}} =
+      OrganizationManager.add_members_to_campaign(context.pid, context.members, context.campaign, 1000)
+    Map.put(context, :campaign_members, added)
   end
 end

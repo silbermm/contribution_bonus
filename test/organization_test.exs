@@ -2,7 +2,7 @@ defmodule ContributionBonus.OrganizationTest do
   use ExUnit.Case, async: true
   import ContributionBonus.Factory
 
-  alias ContributionBonus.{Organization, Member}
+  alias ContributionBonus.{Organization}
 
   test "creates a new organization" do
     assert {:ok, %Organization{name: "testings", members: []}} == Organization.new("testings")

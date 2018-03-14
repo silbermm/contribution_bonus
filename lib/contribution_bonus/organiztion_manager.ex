@@ -1,5 +1,5 @@
 defmodule ContributionBonus.OrganizationManager do
-  use GenServer
+  use GenServer, start: {__MODULE__, :start_link, []}, restart: :transient
   alias ContributionBonus.{Organization, Member, Campaign, CampaignMember}
 
   def start_link(org_name),
@@ -23,6 +23,11 @@ defmodule ContributionBonus.OrganizationManager do
   def add_members_to_campaign(org, members, campaign, amount, can_receive \\ true)
       when is_list(members),
       do: GenServer.call(org, {:add_campaign_members, members, campaign, amount, can_receive})
+
+  def get_members(org), do: GenServer.call(org, {:get_members})
+
+  def get_campaign_members(org, campaign),
+    do: GenServer.call(org, {:get_campaign_members, campaign})
 
   # SERVER METHODS
   def handle_call({:add_member, first_name, last_name, email}, _from, state) do
@@ -71,16 +76,29 @@ defmodule ContributionBonus.OrganizationManager do
   def handle_call({:add_campaign_members, members, campaign, amount, can_receive}, _from, state) do
     with :valid_campaign <- valid_campaign(state, campaign),
          {valid_members, invalid_members} <-
-           split_campaign_members(state, members, campaign, amount, can_receive),
-         to_add <- Enum.map(valid_members, fn {:ok, cm} -> cm end),
-         {:ok, campaign} <- Campaign.add_members(campaign, to_add) do
+           split_campaign_members(state, members, amount, can_receive),
+         valid <- Enum.map(valid_members, fn {:ok, cm} -> cm end),
+         invalid <- Enum.map(invalid_members, fn {:error, cm} -> cm end),
+         {:ok, campaign} <- Campaign.add_members(campaign, valid) do
       state
       |> replace_campaign(campaign)
-      |> reply_success({:ok, campaign, {valid_members, invalid_members}})
+      |> reply_success({:ok, campaign, {valid, invalid}})
     else
       :invalid_campaign -> reply_error(state, "campaign does not exist")
       {:error, err} -> reply_error(state, err)
     end
+  end
+
+  def handle_call({:get_members}, _from, state) do
+    {:reply, state.organization.members, state}
+  end
+
+  def handle_call({:get_campaign_members, campaign}, _from, state) do
+    members =
+      state.campaigns
+      |> Enum.find(fn c -> c.id == campaign.id end)
+      |> _get_campaign_members
+    {:reply, members, state}
   end
 
   def via_tuple(org_name), do: {:via, Registry, {Registry.Organization, org_name}}
@@ -94,20 +112,20 @@ defmodule ContributionBonus.OrganizationManager do
   defp add_campaign(%{campaigns: campaigns} = state, campaign),
     do: put_in(state, [:campaigns], campaigns ++ [campaign])
 
-  defp create_campaign_member(state, campaign, member, can_receive, amount) do
+  defp create_campaign_member(state, member, can_receive, amount) do
     with :valid_member <- valid_member(state, member),
          {:ok, %CampaignMember{} = cm} <- CampaignMember.new(member, can_receive, amount) do
       {:ok, cm}
     else
       :invalid_member -> {:error, member}
-      e -> {:error, member}
+      _ -> {:error, member}
     end
   end
 
-  defp split_campaign_members(state, members, campaign, amount, can_receive) do
+  defp split_campaign_members(state, members, amount, can_receive) do
     members
-    |> Enum.map(&create_campaign_member(state, campaign, &1, can_receive, amount))
-    |> Enum.split_with(fn {ok_or_err, payload} -> ok_or_err == :ok end)
+    |> Enum.map(&create_campaign_member(state, &1, can_receive, amount))
+    |> Enum.split_with(fn {ok_or_err, _} -> ok_or_err == :ok end)
   end
 
   defp replace_campaign(%{campaigns: campaigns} = state, campaign) do
@@ -115,9 +133,6 @@ defmodule ContributionBonus.OrganizationManager do
     campaigns = List.replace_at(campaigns, idx, campaign)
     put_in(state, [:campaigns], campaigns)
   end
-
-  defp replace_campaign_members(new_campaign_members, campaign),
-    do: %{campaign | campaign_members: new_campaign_members}
 
   defp valid_member(state, %Member{email: email} = _member) do
     state.organization.members
@@ -136,4 +151,7 @@ defmodule ContributionBonus.OrganizationManager do
       _ -> :invalid_campaign
     end
   end
+
+  defp _get_campaign_members(nil), do: []
+  defp _get_campaign_members(campaign), do: campaign.campaign_members
 end
