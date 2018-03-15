@@ -4,10 +4,12 @@ defmodule ContributionBonus.Application do
   @moduledoc false
 
   use Application
+  alias ContributionBonus.OrganizationSupervisor
 
   def start(_type, _args) do
     children = [
-      {Registry, keys: :unique, name: Registry.Organization}
+      {Registry, keys: :unique, name: Registry.Organization},
+      OrganizationSupervisor
     ]
 
     opts = [strategy: :one_for_one, name: ContributionBonus.Supervisor]

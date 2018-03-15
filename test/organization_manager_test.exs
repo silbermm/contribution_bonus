@@ -1,8 +1,13 @@
 defmodule ContributionBonus.OrganziationManagerTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
 
   import ContributionBonus.Factory
-  alias ContributionBonus.{OrganizationManager}
+  alias ContributionBonus.{OrganizationSupervisor, OrganizationManager}
+
+  setup do
+    on_exit &remove_org/0
+    :ok
+  end
 
   describe "adds organization members" do
     setup :ingage_org
@@ -119,13 +124,12 @@ defmodule ContributionBonus.OrganziationManagerTest do
   end
 
   defp ingage_org(_context) do
-    {:ok, pid} = OrganizationManager.start_link("Ingage Partners")
+    {:ok, pid} = OrganizationSupervisor.create_organization("Ingage Partners")
     [pid: pid]
   end
 
   defp with_members(context) do
     members = build_list(4, :member)
-
     Enum.each(
       members,
       &OrganizationManager.add_member(context.pid, &1.first_name, &1.last_name, &1.email)
@@ -153,4 +157,10 @@ defmodule ContributionBonus.OrganziationManagerTest do
       OrganizationManager.add_members_to_campaign(context.pid, context.members, context.campaign, 1000)
     Map.put(context, :campaign_members, added)
   end
+
+  defp remove_org do
+    OrganizationSupervisor.remove_organization("Ingage Partners")
+  end
+
+
 end
