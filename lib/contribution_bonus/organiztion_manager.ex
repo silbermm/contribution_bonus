@@ -98,6 +98,7 @@ defmodule ContributionBonus.OrganizationManager do
       state.campaigns
       |> Enum.find(fn c -> c.id == campaign.id end)
       |> _get_campaign_members
+
     {:reply, members, state}
   end
 

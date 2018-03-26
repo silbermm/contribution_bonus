@@ -9,6 +9,7 @@ defmodule ContributionBonus.Application do
   def start(_type, _args) do
     children = [
       {Registry, keys: :unique, name: Registry.Organization},
+      {Registry, keys: :unique, name: Registry.Contribution},
       OrganizationSupervisor
     ]
 

@@ -12,4 +12,8 @@ defmodule ContributionBonus.CampaignMember do
   end
 
   def new(_member, _can_receive, _amount), do: {:error, "invalid campaign member"}
+
+  def is_same?(%CampaignMember{member: member1}, %CampaignMember{member: member2}) do
+    member1.email == member2.email
+  end
 end
