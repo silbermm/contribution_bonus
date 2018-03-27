@@ -15,7 +15,7 @@ defmodule ContributionBonus.ContributionManager do
   end
 
   def init({campaign, campaign_member}) do
-    {:ok, %{campaign: campaign, campign_member: campaign_member, contributions: MapSet.new()}}
+    {:ok, %{campaign: campaign, campaign_member: campaign_member, contributions: MapSet.new()}}
   end
 
   def contribute_to(pid, campaign_member, amount, txt),
@@ -32,7 +32,7 @@ defmodule ContributionBonus.ContributionManager do
          } do
       state
       |> update_contributions(contribution)
-      |> reply_success({:ok})
+      |> reply_success({:ok, left_to_give - amount})
     else
       {:error, err_msg} -> reply_error(state, err_msg)
       false -> reply_error(state, "member is not eligible to receive funds")
@@ -68,10 +68,10 @@ defmodule ContributionBonus.ContributionManager do
   defp verify_money(state, amount_to_give) when amount_to_give > 0 do
     given_so_far = amount_given(state)
     left_to_give = state.campaign_member.amount_to_give - given_so_far
-
-    case left_to_give > 0 do
-      true -> {:ok, left_to_give}
-      false -> {:error, "no money left to give"}
+    if left_to_give - amount_to_give >= 0 do
+      {:ok, left_to_give}
+    else
+      {:error, "insufficient funds"}
     end
   end
 
@@ -84,7 +84,7 @@ defmodule ContributionBonus.ContributionManager do
   end
 
   def via_tuple(campaign, campaign_member) do
-    identifier = campaign.campaign_id <> campaign_member.member.email
+    identifier = campaign.id <> campaign_member.member.email
     {:via, Registry, {Registry.Contribution, identifier}}
   end
 end

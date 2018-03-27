@@ -26,6 +26,7 @@ defmodule ContributionBonus.Factory do
 
   def campaign_factory do
     %Campaign{
+      id: sequence("random_id"),
       title: sequence("title"),
       start_date: Date.utc_today(),
       end_date: Date.add(Date.utc_today(), 20)
