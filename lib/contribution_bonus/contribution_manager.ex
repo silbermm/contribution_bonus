@@ -21,10 +21,12 @@ defmodule ContributionBonus.ContributionManager do
   def contribute_to(pid, campaign_member, amount, txt),
     do: GenServer.call(pid, {:contribute_to, campaign_member, amount, txt})
 
+  def current_balance(pid), do: GenServer.call(pid, :current_balance)
+
   def handle_call({:contribute_to, campaign_member, amount, txt}, _from, state) do
-    with {:ok, left_to_give} <- verify_money(state, amount),
+    with :valid <- contributee_status(state, campaign_member),
+         {:ok, left_to_give} <- verify_money(state, amount),
          true <- campaign_member.can_receive?,
-         :valid <- contributee_status(state, campaign_member),
          contribution <- %ContributionManager{
            campaign_member: campaign_member,
            amount: amount,
@@ -34,24 +36,58 @@ defmodule ContributionBonus.ContributionManager do
       |> update_contributions(contribution)
       |> reply_success({:ok, left_to_give - amount})
     else
+      {:invalid, contribution} -> edit_contribution(state, contribution, amount, txt)
       {:error, err_msg} -> reply_error(state, err_msg)
       false -> reply_error(state, "member is not eligible to receive funds")
-      :invalid -> reply_error(state, "already contributed to member")
     end
+  end
+
+  def handle_call(:current_balance, _from, state) do
+    reply_success(state, amount_left(state))
   end
 
   defp reply_success(state, reply), do: {:reply, reply, state}
 
   defp reply_error(state, msg), do: {:reply, {:error, msg}, state}
 
-  defp update_contributions(state, contribution) do
-    state
-    |> Map.put(:contributions, add_contribution(state.contributions, contribution))
+  defp edit_contribution(state, old_contribution, amount, txt) do
+    state = update_contributions(state, old_contribution, :delete)
+
+    with {:ok, left_to_give} <- verify_money(state, amount) do
+      new_contribution = %__MODULE__{old_contribution | amount: amount}
+
+      state
+      |> update_contributions(new_contribution, :add)
+      |> reply_success({:ok, left_to_give - amount})
+    else
+      {:error, err_msg} ->
+        state
+        |> update_contributions(old_contribution, :add)
+        |> reply_error(err_msg)
+    end
+  end
+
+  defp update_contributions(state, contribution, operation \\ :add) do
+    case operation do
+      :add ->
+        Map.put(state, :contributions, add_contribution(state.contributions, contribution))
+
+      :delete ->
+        Map.put(state, :contributions, remove_contribution(state.contributions, contribution))
+
+      _ ->
+        state
+    end
   end
 
   defp add_contribution(current_contributions, contribution) do
     current_contributions
     |> MapSet.put(contribution)
+  end
+
+  defp remove_contribution(current_contributions, contribution) do
+    current_contributions
+    |> MapSet.delete(contribution)
   end
 
   defp contributee_status(state, campaign_member) do
@@ -61,13 +97,13 @@ defmodule ContributionBonus.ContributionManager do
     end)
     |> case do
       nil -> :valid
-      _ -> :invalid
+      contribution -> {:invalid, contribution}
     end
   end
 
   defp verify_money(state, amount_to_give) when amount_to_give > 0 do
-    given_so_far = amount_given(state)
-    left_to_give = state.campaign_member.amount_to_give - given_so_far
+    left_to_give = amount_left(state)
+
     if left_to_give - amount_to_give >= 0 do
       {:ok, left_to_give}
     else
@@ -76,6 +112,11 @@ defmodule ContributionBonus.ContributionManager do
   end
 
   defp verify_money(_state, _amount), do: {:error, "must give more than $0"}
+
+  defp amount_left(state) do
+    given_so_far = amount_given(state)
+    state.campaign_member.amount_to_give - given_so_far
+  end
 
   defp amount_given(state) do
     state.contributions
