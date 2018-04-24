@@ -1,5 +1,5 @@
-defmodule ContributionBonus.ContributionManager do
-  use GenServer
+defmodule ContributionBonus.Contribution do
+  use GenServer, start: {__MODULE__, :start_link, []}, restart: :transient
 
   alias __MODULE__
   alias ContributionBonus.CampaignMember
@@ -25,9 +25,10 @@ defmodule ContributionBonus.ContributionManager do
 
   def handle_call({:contribute_to, campaign_member, amount, txt}, _from, state) do
     with :valid <- contributee_status(state, campaign_member),
+         :ok <- verify_dates(state),
          {:ok, left_to_give} <- verify_money(state, amount),
          true <- campaign_member.can_receive?,
-         contribution <- %ContributionManager{
+         contribution <- %Contribution{
            campaign_member: campaign_member,
            amount: amount,
            txt: txt
@@ -98,6 +99,28 @@ defmodule ContributionBonus.ContributionManager do
     |> case do
       nil -> :valid
       contribution -> {:invalid, contribution}
+    end
+  end
+
+  defp verify_dates(%{campaign: campaign} = state) do
+    case verify_start_date(campaign.start_date) do
+      :ok -> verify_end_date(campaign.end_date)
+      err -> err
+    end
+  end
+
+  defp verify_end_date(end_date) do
+    case Date.compare(Date.utc_today(), end_date) do
+      :gt -> {:error, "campaign has ended"}
+      _ -> :ok
+    end
+  end
+
+  defp verify_start_date(start_date) do
+    case Date.compare(Date.utc_today(), start_date) do
+      :gt -> :ok
+      :eq -> :ok
+      _ -> {:error, "campaign has not started"}
     end
   end
 
