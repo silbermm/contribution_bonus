@@ -3,16 +3,4 @@ defmodule ContributionBonus do
   Documentation for ContributionBonus.
   """
 
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> ContributionBonus.hello
-      :world
-
-  """
-  def hello do
-    :world
-  end
 end

@@ -1,13 +1,17 @@
-defmodule ContributionBonus.OrganizationManager do
+defmodule ContributionBonus.Organization do
   use GenServer, start: {__MODULE__, :start_link, []}, restart: :transient
-  alias ContributionBonus.{Organization, Member, Campaign, CampaignMember}
+  alias ContributionBonus.{Member, Campaign, CampaignMember}
+  alias __MODULE__
+
+  @timeout 20_000
+
+  defstruct name: nil, members: []
 
   def start_link(org_name),
     do: GenServer.start_link(__MODULE__, org_name, name: via_tuple(org_name))
 
   def init(org_name) do
-    {:ok, org} = Organization.new(org_name)
-    {:ok, %{organization: org, campaigns: []}}
+    {:ok, %{organization: %Organization{name: org_name}, campaigns: []}, @timeout}
   end
 
   # CLIENT FUNCTIONS
@@ -32,7 +36,7 @@ defmodule ContributionBonus.OrganizationManager do
   # SERVER METHODS
   def handle_call({:add_member, first_name, last_name, email}, _from, state) do
     with {:ok, member} <- Member.new(first_name, last_name, email),
-         %Organization{} = org <- Organization.add_member(state.organization, member) do
+         %Organization{} = org <- add_member_to_org(state.organization, member) do
       state
       |> update_org(org)
       |> reply_success({:ok, member})
@@ -90,7 +94,7 @@ defmodule ContributionBonus.OrganizationManager do
   end
 
   def handle_call({:get_members}, _from, state) do
-    {:reply, state.organization.members, state}
+    {:reply, state.organization.members, state, @timeout}
   end
 
   def handle_call({:get_campaign_members, campaign}, _from, state) do
@@ -99,14 +103,17 @@ defmodule ContributionBonus.OrganizationManager do
       |> Enum.find(fn c -> c.id == campaign.id end)
       |> _get_campaign_members
 
-    {:reply, members, state}
+    {:reply, members, state, @timeout}
   end
+
+  def handle_info(:timeout, state), do:
+    {:stop, {:shutdown, :timeout}, state}
 
   def via_tuple(org_name), do: {:via, Registry, {Registry.Organization, org_name}}
 
-  defp reply_success(state, reply), do: {:reply, reply, state}
+  defp reply_success(state, reply), do: {:reply, reply, state, @timeout}
 
-  defp reply_error(state, msg), do: {:reply, {:error, msg}, state}
+  defp reply_error(state, msg), do: {:reply, {:error, msg}, state, @timeout}
 
   defp update_org(state, new_org), do: %{state | organization: new_org}
 
@@ -155,4 +162,19 @@ defmodule ContributionBonus.OrganizationManager do
 
   defp _get_campaign_members(nil), do: []
   defp _get_campaign_members(campaign), do: campaign.campaign_members
+
+
+  defp add_member_to_org(%Organization{name: name, members: members} = org, %Member{} = member)
+      when not is_nil(name) do
+    to_add = Enum.any?(org.members, &(&1.email == member.email))
+    _add_member(org, member, members, to_add)
+  end
+
+  defp add_member_to_org(_org, _member), do: :error
+
+  defp _add_member(org, member, current, false),
+    do: %{org | members: Enum.concat(current, [member])}
+
+  defp _add_member(_organization, _member, _current, true), do: {:error, "already exists"}
+
 end
