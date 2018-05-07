@@ -64,28 +64,33 @@ defmodule ContributionBonus.ContributionTest do
 
   describe "campaign hasn't started yet" do
     setup do
-      campaign = 
+      campaign =
         build(:campaign)
         |> Map.put(:start_date, Date.add(Date.utc_today(), 20))
         |> Map.put(:end_date, Date.add(Date.utc_today(), 30))
+
       me = build(:campaign_member)
       eligible = build(:campaign_member)
       {:ok, pid} = ContributionSupervisor.start_contribution(campaign, me)
       [eligible: eligible, pid: pid]
     end
 
-    test "unable to contribute to campaign that has not yet started", %{pid: pid, eligible: eligible} do
-      assert {:error, "campaign has not started"} == Contribution.contribute_to(pid, eligible, 500, "here ya go!")
+    test "unable to contribute to campaign that has not yet started", %{
+      pid: pid,
+      eligible: eligible
+    } do
+      assert {:error, "campaign has not started"} ==
+               Contribution.contribute_to(pid, eligible, 500, "here ya go!")
     end
-
   end
 
   describe "campaign has ended" do
     setup do
-      campaign = 
+      campaign =
         build(:campaign)
         |> Map.put(:start_date, Date.add(Date.utc_today(), -20))
         |> Map.put(:end_date, Date.add(Date.utc_today(), -10))
+
       me = build(:campaign_member)
       eligible = build(:campaign_member)
       {:ok, pid} = ContributionSupervisor.start_contribution(campaign, me)
@@ -93,9 +98,8 @@ defmodule ContributionBonus.ContributionTest do
     end
 
     test "unable to contribute to expired campaign", %{pid: pid, eligible: eligible} do
-      assert {:error, "campaign has ended"} == Contribution.contribute_to(pid, eligible, 500, "here ya go!")
+      assert {:error, "campaign has ended"} ==
+               Contribution.contribute_to(pid, eligible, 500, "here ya go!")
     end
-
   end
-
 end

@@ -1,12 +1,12 @@
 defmodule ContributionBonus.Contribution do
-  use GenServer, start: {__MODULE__, :start_link, []}, restart: :transient
+  use GenServer, restart: :transient
 
   alias __MODULE__
   alias ContributionBonus.CampaignMember
 
   defstruct [:campaign_member, :amount, :txt]
 
-  def start_link({campaign, campaign_member}) do
+  def start_link([campaign: campaign, campaign_member: campaign_member]) do
     GenServer.start_link(
       __MODULE__,
       {campaign, campaign_member},
@@ -75,9 +75,6 @@ defmodule ContributionBonus.Contribution do
 
       :delete ->
         Map.put(state, :contributions, remove_contribution(state.contributions, contribution))
-
-      _ ->
-        state
     end
   end
 

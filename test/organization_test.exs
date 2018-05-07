@@ -1,4 +1,4 @@
-defmodule ContributionBonus.OrganziationManagerTest do
+defmodule ContributionBonus.OrganziationTest do
   use ExUnit.Case, async: false
 
   import ContributionBonus.Factory
@@ -13,16 +13,14 @@ defmodule ContributionBonus.OrganziationManagerTest do
     setup :ingage_org
 
     test "add member to organization", %{pid: pid} do
-      {:ok, member} =
-        Organization.add_member(pid, "Matt", "Silbernagel", "silbermm@gmail.com")
+      {:ok, member} = Organization.add_member(pid, "Matt", "Silbernagel", "silbermm@gmail.com")
 
       assert member.first_name == "Matt"
       assert member.last_name == "Silbernagel"
     end
 
     test "fails to add member with same email", %{pid: pid} do
-      {:ok, member} =
-        Organization.add_member(pid, "Matt", "Silbernagel", "silbermm@gmail.com")
+      {:ok, member} = Organization.add_member(pid, "Matt", "Silbernagel", "silbermm@gmail.com")
 
       assert member.first_name == "Matt"
       assert member.last_name == "Silbernagel"
@@ -65,14 +63,13 @@ defmodule ContributionBonus.OrganziationManagerTest do
       campaign = build(:campaign)
       member = List.first(members)
 
-      {:error, msg} =
-        Organization.add_member_to_campaign(pid, member, campaign, "1000", true)
+      {:error, msg} = Organization.add_member_to_campaign(pid, member, campaign, "1000", true)
 
       assert msg == "campaign does not exist"
     end
 
     test "unable to create an org if already exists", %{pid: pid} do
-      {:error, reason} = Organization.start_link("Ingage Partners")
+      {:error, reason} = Organization.start_link(name: "Ingage Partners")
       assert reason == {:already_started, pid}
     end
   end

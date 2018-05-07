@@ -1,5 +1,5 @@
 defmodule ContributionBonus.Organization do
-  use GenServer, start: {__MODULE__, :start_link, []}, restart: :transient
+  use GenServer, restart: :transient
   alias ContributionBonus.{Member, Campaign, CampaignMember}
   alias __MODULE__
 
@@ -7,7 +7,7 @@ defmodule ContributionBonus.Organization do
 
   defstruct name: nil, members: []
 
-  def start_link(org_name),
+  def start_link([name: org_name]),
     do: GenServer.start_link(__MODULE__, org_name, name: via_tuple(org_name))
 
   def init(org_name) do
@@ -106,8 +106,7 @@ defmodule ContributionBonus.Organization do
     {:reply, members, state, @timeout}
   end
 
-  def handle_info(:timeout, state), do:
-    {:stop, {:shutdown, :timeout}, state}
+  def handle_info(:timeout, state), do: {:stop, {:shutdown, :timeout}, state}
 
   def via_tuple(org_name), do: {:via, Registry, {Registry.Organization, org_name}}
 
@@ -163,9 +162,8 @@ defmodule ContributionBonus.Organization do
   defp _get_campaign_members(nil), do: []
   defp _get_campaign_members(campaign), do: campaign.campaign_members
 
-
   defp add_member_to_org(%Organization{name: name, members: members} = org, %Member{} = member)
-      when not is_nil(name) do
+       when not is_nil(name) do
     to_add = Enum.any?(org.members, &(&1.email == member.email))
     _add_member(org, member, members, to_add)
   end
@@ -176,5 +174,4 @@ defmodule ContributionBonus.Organization do
     do: %{org | members: Enum.concat(current, [member])}
 
   defp _add_member(_organization, _member, _current, true), do: {:error, "already exists"}
-
 end
