@@ -1,12 +1,19 @@
 defmodule ContributionBonus.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
-  alias ContributionBonus.{OrganizationSupervisor, ContributionSupervisor}
+
+  alias ContributionBonus.{
+    OrganizationSupervisor,
+    ContributionSupervisor,
+    Contribution,
+    Organization,
+    StateRepo
+  }
 
   def start(_type, _args) do
+    StateRepo.create_tables([Contribution, Organization])
+
     children = [
       {Registry, keys: :unique, name: Registry.Organization},
       {Registry, keys: :unique, name: Registry.Contribution},

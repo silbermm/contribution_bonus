@@ -1,17 +1,22 @@
 defmodule ContributionBonus.Organization do
   use GenServer, restart: :transient
-  alias ContributionBonus.{Member, Campaign, CampaignMember}
+  alias ContributionBonus.{Member, Campaign, CampaignMember, StateRepo}
   alias __MODULE__
 
   @timeout 20_000
 
   defstruct name: nil, members: []
 
-  def start_link([name: org_name]),
+  def start_link(name: org_name),
     do: GenServer.start_link(__MODULE__, org_name, name: via_tuple(org_name))
 
   def init(org_name) do
-    {:ok, %{organization: %Organization{name: org_name}, campaigns: []}, @timeout}
+    state = case StateRepo.find(__MODULE__, org_name) do
+      [] = %{organization: %Organization{name: org_name}, campaigns: []}
+      [{_key, value}] -> value
+    end
+    :ok = StateRepo.update(__MODULE__, {org_name, state})
+    {:ok, state, @timeout}
   end
 
   # CLIENT FUNCTIONS

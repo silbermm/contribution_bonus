@@ -6,7 +6,7 @@ defmodule ContributionBonus.Contribution do
 
   defstruct [:campaign_member, :amount, :txt]
 
-  def start_link([campaign: campaign, campaign_member: campaign_member]) do
+  def start_link(campaign: campaign, campaign_member: campaign_member) do
     GenServer.start_link(
       __MODULE__,
       {campaign, campaign_member},
